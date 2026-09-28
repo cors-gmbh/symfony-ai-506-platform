@@ -1,0 +1,61 @@
+{
+    "name": "cors/symfony-ai-506-platform",
+    "description": "506.ai platform bridge for Symfony AI",
+    "license": "MIT",
+    "type": "symfony-bridge",
+    "keywords": [
+        "ai",
+        "506",
+        "506.ai",
+        "llm",
+        "symfony-ai",
+        "platform",
+        "bridge"
+    ],
+    "authors": [
+        {
+            "name": "CORS GmbH",
+            "email": "office@cors.gmbh",
+            "homepage": "https://www.cors.gmbh/"
+        }
+    ],
+    "homepage": "https://github.com/cors-gmbh/symfony-ai-506-platform",
+    "require": {
+        "php": ">=8.2",
+        "symfony/ai-platform": "^0.14",
+        "symfony/http-client": "^7.3|^8.0"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.75",
+        "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "phpunit/phpunit": "^11.5",
+        "symfony/config": "^7.3|^8.0",
+        "symfony/dependency-injection": "^7.3|^8.0",
+        "symfony/event-dispatcher": "^7.3|^8.0",
+        "symfony/http-kernel": "^7.3|^8.0"
+    },
+    "suggest": {
+        "symfony/ai-bundle": "Profiler integration and the ai:platform:invoke command for the registered platform",
+        "symfony/framework-bundle": "To register the platform as a service via CORSAi506Bundle"
+    },
+    "autoload": {
+        "psr-4": {
+            "CORS\\AI\\Platform\\Bridge\\Ai506\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "CORS\\AI\\Platform\\Bridge\\Ai506\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "0.1-dev"
+        }
+    }
+}
