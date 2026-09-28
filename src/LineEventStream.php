@@ -3,12 +3,15 @@
 declare(strict_types=1);
 
 /*
- * This file is part of the 506.ai platform bridge for Symfony AI.
+ * CORS GmbH
  *
- * (c) CORS GmbH <office@cors.gmbh>
+ * This source file is available under the MIT license
  *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
+ * Full copyright and license information is available in
+ * LICENSE.md which is distributed with this source code.
+ *
+ * @copyright  Copyright (c) CORS GmbH (https://www.cors.gmbh)
+ * @license    https://opensource.org/license/mit MIT
  */
 
 namespace CORS\AI\Platform\Bridge\Ai506;
