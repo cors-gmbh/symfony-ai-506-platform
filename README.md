@@ -1,3 +1,5 @@
+[![CORS - One system. Down to the Core.](https://raw.githubusercontent.com/cors-gmbh/.github/refs/heads/main/cors-banner.jpg)](https://cors.gmbh)
+
 506.ai Platform for Symfony AI
 ==============================
 
