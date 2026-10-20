@@ -49,12 +49,17 @@ final class Factory
         ?EventDispatcherInterface $eventDispatcher = null,
         string $name = 'ai506',
     ): ProviderInterface {
+        $httpClient ??= HttpClient::create();
+        $baseUrl = self::baseUrl($host);
+
         return new Provider(
             $name,
-            [new ModelClient($httpClient ?? HttpClient::create(), self::baseUrl($host), $organizationId, $apiKey)],
+            [new ModelClient($httpClient, $baseUrl, $organizationId, $apiKey)],
             [new ResultConverter()],
             $modelCatalog,
-            $contract ?? Contract::create([new MessageBagNormalizer()]),
+            $contract ?? Contract::create([
+                new MessageBagNormalizer(new TextExtractor($httpClient, $baseUrl, $organizationId, $apiKey)),
+            ]),
             $eventDispatcher,
         );
     }

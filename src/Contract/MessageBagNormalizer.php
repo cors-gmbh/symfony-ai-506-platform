@@ -17,9 +17,11 @@ declare(strict_types=1);
 namespace CORS\AI\Platform\Bridge\Ai506\Contract;
 
 use CORS\AI\Platform\Bridge\Ai506\Ai506;
+use CORS\AI\Platform\Bridge\Ai506\TextExtractor;
 use Symfony\AI\Platform\Contract\Normalizer\ModelContractNormalizer;
 use Symfony\AI\Platform\Exception\InvalidArgumentException;
 use Symfony\AI\Platform\Message\AssistantMessage;
+use Symfony\AI\Platform\Message\Content\Document;
 use Symfony\AI\Platform\Message\Content\Text;
 use Symfony\AI\Platform\Message\MessageBag;
 use Symfony\AI\Platform\Message\MessageInterface;
@@ -29,9 +31,17 @@ use Symfony\AI\Platform\Model;
 
 /**
  * 506.ai only understands plain text messages: {role, content, references: [], sources: []}.
+ *
+ * Documents in user messages are turned into text by the TextExtractor (one request for the whole bag) and
+ * inlined as <document name="…">…</document> blocks.
  */
 final class MessageBagNormalizer extends ModelContractNormalizer
 {
+    public function __construct(
+        private readonly ?TextExtractor $textExtractor = null,
+    ) {
+    }
+
     /**
      * @return array{messages: list<array{role: string, content: string, references: array{}, sources: array{}}>}
      */
@@ -41,8 +51,10 @@ final class MessageBagNormalizer extends ModelContractNormalizer
             throw new InvalidArgumentException(\sprintf('Expected "%s", got "%s".', MessageBag::class, get_debug_type($data)));
         }
 
+        $documents = $this->extractDocuments($data);
+
         return [
-            'messages' => array_map($this->normalizeMessage(...), $data->getMessages()),
+            'messages' => array_map(fn (MessageInterface $message): array => $this->normalizeMessage($message, $documents), $data->getMessages()),
         ];
     }
 
@@ -57,13 +69,15 @@ final class MessageBagNormalizer extends ModelContractNormalizer
     }
 
     /**
+     * @param \WeakMap<Document, string> $documents
+     *
      * @return array{role: string, content: string, references: array{}, sources: array{}}
      */
-    private function normalizeMessage(MessageInterface $message): array
+    private function normalizeMessage(MessageInterface $message, \WeakMap $documents): array
     {
         $content = match (true) {
             $message instanceof SystemMessage => (string) $message->getContent(),
-            $message instanceof UserMessage => $this->userText($message),
+            $message instanceof UserMessage => $this->userText($message, $documents),
             $message instanceof AssistantMessage => $message->asText() ?? '',
             default => throw new InvalidArgumentException(\sprintf('506.ai does not support "%s" (no tool calling via the public API).', $message::class)),
         };
@@ -76,14 +90,75 @@ final class MessageBagNormalizer extends ModelContractNormalizer
         ];
     }
 
-    private function userText(UserMessage $message): string
+    /**
+     * Text parts are joined with a space like UserMessage::asText(), documents get a paragraph of their own.
+     *
+     * @param \WeakMap<Document, string> $documents
+     */
+    private function userText(UserMessage $message, \WeakMap $documents): string
     {
+        $text = '';
+        $previous = null;
         foreach ($message->getContent() as $content) {
-            if (!$content instanceof Text) {
-                throw new InvalidArgumentException(\sprintf('506.ai only supports text input, got "%s". Upload media via the 506.ai API and pass it as "selected_files".', $content::class));
+            $part = match (true) {
+                $content instanceof Text => $content->getText(),
+                $content instanceof Document => $this->documentBlock($content, $documents[$content]),
+                default => throw new InvalidArgumentException(\sprintf('506.ai only supports text and documents, got "%s". Upload other media via the 506.ai API and pass it as "selected_files".', $content::class)),
+            };
+
+            if (null !== $previous) {
+                $text .= $content instanceof Text && $previous instanceof Text ? ' ' : "\n\n";
+            }
+            $text .= $part;
+            $previous = $content;
+        }
+
+        return $text;
+    }
+
+    /**
+     * @return \WeakMap<Document, string>
+     */
+    private function extractDocuments(MessageBag $messages): \WeakMap
+    {
+        $files = [];
+        foreach ($messages->getMessages() as $message) {
+            if (!$message instanceof UserMessage) {
+                continue;
+            }
+
+            foreach ($message->getContent() as $content) {
+                if ($content instanceof Document && !\in_array($content, $files, true)) {
+                    $files[] = $content;
+                }
             }
         }
 
-        return $message->asText() ?? '';
+        /** @var \WeakMap<Document, string> $documents */
+        $documents = new \WeakMap();
+        if ([] === $files) {
+            return $documents;
+        }
+
+        if (null === $this->textExtractor) {
+            throw new InvalidArgumentException(\sprintf('506.ai needs a "%s" for documents, create the platform with the Factory or pass one to "%s".', TextExtractor::class, self::class));
+        }
+
+        foreach ($this->textExtractor->extract($files) as $i => $text) {
+            $documents[$files[$i]] = $text;
+        }
+
+        return $documents;
+    }
+
+    private function documentBlock(Document $document, string $text): string
+    {
+        $name = $document->getFilename();
+
+        return \sprintf(
+            "<document%s>\n%s\n</document>",
+            null !== $name ? ' name="'.htmlspecialchars($name, \ENT_QUOTES | \ENT_XML1).'"' : '',
+            trim($text),
+        );
     }
 }

@@ -31,6 +31,8 @@ final class ModelCatalog extends AbstractModelCatalog
     public const CAPABILITIES = [
         Capability::INPUT_MESSAGES,
         Capability::INPUT_TEXT,
+        // converted to text via TextExtractor
+        Capability::INPUT_PDF,
         Capability::OUTPUT_TEXT,
         Capability::OUTPUT_STREAMING,
         Capability::OUTPUT_STRUCTURED,
