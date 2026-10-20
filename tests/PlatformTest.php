@@ -19,6 +19,7 @@ namespace CORS\AI\Platform\Bridge\Ai506\Tests;
 use CORS\AI\Platform\Bridge\Ai506\Factory;
 use CORS\AI\Platform\Bridge\Ai506\Tests\Fixtures\Recipe;
 use PHPUnit\Framework\TestCase;
+use Symfony\AI\Platform\Message\Content\Document;
 use Symfony\AI\Platform\Message\Message;
 use Symfony\AI\Platform\Message\MessageBag;
 use Symfony\AI\Platform\Result\Stream\Delta\TextDelta;
@@ -38,6 +39,34 @@ final class PlatformTest extends TestCase
         $platform = Factory::createPlatform('acme', 'org', 'key', new MockHttpClient(new JsonMockResponse(['content' => 'Hello!'])));
 
         $this->assertSame('Hello!', $platform->invoke('gpt-4.1', new MessageBag(Message::ofUser('Hi')))->asText());
+    }
+
+    public function testDocument(): void
+    {
+        $chat = new JsonMockResponse(['content' => 'A Kornspitz needs flour and salt.']);
+        $platform = Factory::createPlatform('acme', 'org', 'key', new MockHttpClient([
+            new JsonMockResponse([['filename' => 'document-1.pdf', 'status' => 200, 'text' => 'Flour, salt']], ['http_code' => 207]),
+            $chat,
+        ]));
+
+        $result = $platform->invoke('gpt-4.1', new MessageBag(Message::ofUser(
+            'What is in it?',
+            new Document('%PDF', 'application/pdf', '/tmp/kornspitz.pdf'),
+        )))->asText();
+
+        $this->assertSame('A Kornspitz needs flour and salt.', $result);
+        $this->assertSame('https://acme.506.ai:3003/api/v1/public/chatNoStream?internalSystemPrompt=true', $chat->getRequestUrl());
+
+        $body = $chat->getRequestOptions()['body'];
+        $this->assertIsString($body);
+        $decoded = json_decode($body, true, flags: \JSON_THROW_ON_ERROR);
+        $this->assertIsArray($decoded);
+        $this->assertSame([[
+            'role' => 'user',
+            'content' => "What is in it?\n\n<document name=\"kornspitz.pdf\">\nFlour, salt\n</document>",
+            'references' => [],
+            'sources' => [],
+        ]], $decoded['messages']);
     }
 
     public function testStream(): void

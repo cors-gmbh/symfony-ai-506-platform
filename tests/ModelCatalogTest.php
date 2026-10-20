@@ -32,6 +32,7 @@ final class ModelCatalogTest extends TestCase
         $this->assertSame('gpt-4.1', $model->getName());
         $this->assertTrue($model->supports(Capability::OUTPUT_STREAMING));
         $this->assertTrue($model->supports(Capability::OUTPUT_STRUCTURED));
+        $this->assertTrue($model->supports(Capability::INPUT_PDF));
         $this->assertFalse($model->supports(Capability::TOOL_CALLING));
         $this->assertFalse($model->supports(Capability::INPUT_IMAGE));
     }

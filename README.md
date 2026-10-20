@@ -7,8 +7,8 @@
 [506.ai](https://506.ai) public API ([API docs](https://developers.506.ai)).
 
 It lets you use the LLMs, roles, assistants, files and data collections of your 506.ai
-organization through Symfony AI's `PlatformInterface` — plain text, streaming and structured
-output into PHP objects.
+organization through Symfony AI's `PlatformInterface` — plain text, documents (PDF, Word, …),
+streaming and structured output into PHP objects.
 
 > This is a community package maintained by [CORS GmbH](https://www.cors.gmbh), it is not
 > affiliated with Symfony or 506.ai.
@@ -121,6 +121,37 @@ final class Recipe
 $recipe = $platform->invoke('gpt-4.1', $messages, ['response_format' => Recipe::class])->asObject();
 ```
 
+Documents
+---------
+
+PDFs and other documents can be passed as `Document` content of a user message:
+
+```php
+use Symfony\AI\Platform\Message\Content\Document;
+
+$messages = new MessageBag(
+    Message::ofUser('Which allergens does this recipe contain?', Document::fromFile('/path/to/kornspitz.pdf')),
+);
+
+echo $platform->invoke('gpt-4.1', $messages)->asText();
+```
+
+506.ai has no file content in chat messages, so the bridge turns every document into text first
+with 506.ai's `extractText` endpoint and puts it into the message as
+`<document name="kornspitz.pdf">…</document>`. That works for chat, streaming and structured
+output alike.
+
+ * All documents of a `MessageBag` are extracted in a single request. A `Document` object that is
+   used more than once is only sent once.
+ * PDFs without a text layer (scans) are sent to `extractTextOcr` automatically.
+ * Supported are the file types of `extractText`: `pdf`, `txt`, `docx`, `pptx`, `xlsx`, `csv`,
+   `json`, `xml`, `eml`, `msg`, `md`, `rtf`, `py`, `java` and `js`. The type is taken from the file
+   extension of the path, else from the MIME type.
+ * 506.ai limits the extraction to 300 MB and 15 requests (OCR: 10) per minute; a `429` becomes a
+   `RateLimitExceededException`.
+ * Nothing is stored on 506.ai. For permanent files, upload them into a data collection and use
+   `selected_files` / `data_collections` instead.
+
 Options
 -------
 
@@ -151,14 +182,14 @@ Limitations
 
  * **No tool calling / agent mode** — not offered by the 506.ai public API. Symfony AI agents
    work, but without tools.
- * **Text input only** — upload media through the 506.ai API and reference it via
-   `selected_files`.
+ * **Text and documents only** — no images, audio or `DocumentUrl`. Upload other media through
+   the 506.ai API and reference it via `selected_files`.
  * **Structured output** has no chat history: all messages are joined into the `content` field.
    The JSON schema is converted to 506.ai's format, which supports `type`, `description`,
    `properties`, `items`, `enum`, `pattern`, `minimum` and `maximum`; nullable types become
    their non-null type. No streaming.
  * **No token usage** is reported by 506.ai.
- * Media, data collection and moderation endpoints are not covered by this bridge.
+ * Media upload, data collection and moderation endpoints are not covered by this bridge.
 
 License
 -------
